@@ -1,10 +1,17 @@
 import sys
 import time
 import cv2
-from kafka import KafkaProducer
+# from kafka import KafkaProducer
+from confluent_kafka import Producer
 
 topic = "kafka-video-topic"
+conf = {
+    'bootstrap.servers': 'localhost:9092',
+    'group.id': 'my-group-id',
+    'auto.offset.reset': 'earliest'
+}
 
+producer = Producer(conf)
 
 def publish_video(video_file):
     """
@@ -13,9 +20,7 @@ def publish_video(video_file):
     
     :param video_file: path to video file <string>
     """
-    # Start up producer
-    producer = KafkaProducer(bootstrap_servers='192.168.99.100:9092')
-
+    
     # Open file
     video = cv2.VideoCapture(video_file)
     
@@ -32,11 +37,14 @@ def publish_video(video_file):
         # Convert image to png
         ret, buffer = cv2.imencode('.jpg', frame)
 
-        print("ret, buffer", ret, buffer)
+        # print("ret, buffer", ret, buffer)
         # Convert to bytes and send to kafka
-        producer.send(topic, buffer.tobytes())
+        producer.produce(topic, buffer.tobytes())
+        producer.flush()
+        # time.sleep(0.2)
 
-        time.sleep(0.2)
+        # print(frame.shape)
+        
     video.release()
     print('publish complete')
 
@@ -48,7 +56,7 @@ def publish_camera():
     """
 
     # Start up producer
-    producer = KafkaProducer(bootstrap_servers='192.168.99.100:9092')
+    # producer = Producer(bootstrap_servers='localhost:9092')
 
     camera = cv2.VideoCapture(0)
     try:
@@ -56,10 +64,12 @@ def publish_camera():
             success, frame = camera.read()
         
             ret, buffer = cv2.imencode('.jpg', frame)
-            producer.send(topic, buffer.tobytes())
+            # producer.send(topic, buffer.tobytes())
+            producer.produce(topic, buffer.tobytes())
+            producer.flush()
             
             # Choppier stream, reduced load on processor
-            time.sleep(0.2)
+            # time.sleep(0)
 
     except:
         print("\nExiting.")
@@ -74,8 +84,8 @@ if __name__ == '__main__':
     Producer will publish to Kafka Server a video file given as a system arg. 
     Otherwise it will default by streaming webcam feed.
     """
-    # sys.argv = ["hi", r"D:\00STUDY\00ANALYTICS\01DataScience_ML\02Study\12OpenCV\Kafka_VDO\KafkaVideoStreaming\videos\Countdown1.mp4"]
-    sys.argv = ["hi", r'C:\Users\esdin\Music\Paris Evening Walk and Bike Ride.mp4']
+    # sys.argv = ["hi", r"http://[2603:7000:7e00:364f:7d05:f2e:127a:db6e]:8080"]
+    sys.argv = ["hi", r'/Users/rushipardeshi/Downloads/iCloud Photos-12/1056.mp4']
     if(len(sys.argv) > 1):
         video_path = sys.argv[1]
         publish_video(video_path)
